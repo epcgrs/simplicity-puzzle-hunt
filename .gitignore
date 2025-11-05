@@ -1,0 +1,23 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# Puzzle files (CONTÉM SECRETS - NUNCA COMMITAR!)
+puzzle_*.json
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Backup files
+*~
+*.swp
+*.swo
