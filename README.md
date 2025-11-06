@@ -1,259 +1,288 @@
 # 🎯 Bitcoin Puzzle Hunt - Hackathon Project
 
-**Caça ao tesouro on-chain usando Simplicity na Liquid Network!**
+**On-chain treasure hunt using Simplicity on Liquid Network!**
 
-## 🎬 Demonstração Rápida
+## 🎬 Quick Overview
 
-Este projeto implementa um jogo de "caça ao tesouro" onde:
-1. 💰 Você bloqueia fundos com uma senha secreta (hash SHA256)
-2. 📢 Publica hints sobre a senha
-3. 🏆 Primeira pessoa que descobrir a senha ganha TODO o prêmio!
+This project implements a "treasure hunt" game where:
+1. 💰 You lock funds with a secret password (SHA256 hash)
+2. 📢 Publish hints about the password
+3. 🏆 First person to discover the password wins ALL the prize!
 
 ## ⚡ Quick Start
 
-### 1. Instalar Dependências
+### 1. Install Dependencies
 
 ```bash
 cd hackathon_puzzle
 
-# Compilar o projeto
+# Build the project
 cargo build --release
 ```
 
-### 2. Garantir que seu elementsd está rodando
+### 2. Ensure elementsd is running
 
 ```bash
-# Verificar se está rodando
+# Check if running
 ps aux | grep elementsd
 
-# Se não estiver, iniciar:
+# If not, start it:
 cd $HOME/Desktop/hub/blockchain/elements
 ./src/elementsd -chain=liquidtestnet -daemon
 ```
 
-### 3. Criar um Puzzle
+### 3. Create a Puzzle
 
 ```bash
-# Criar puzzle com secret "satoshi" e prêmio de 0.1 L-BTC
+# Create puzzle with secret "satoshi" and prize of 0.1 L-BTC
 cargo run --bin create-puzzle -- "satoshi" 0.1
 ```
 
-**Output esperado:**
+**Expected output:**
 ```
-🎯 CRIANDO PUZZLE HUNT
-====================
+🎯 CREATING PUZZLE HUNT
+========================
 
 📝 Secret: satoshi
-🔐 Hash (SHA256): 0xa0dc65ffca799873cbea0ac274015b9526505daaaed385155425f7337704883e
+🔐 Hash (SHA256): 0xa0dc65ff...
 
-⚙️  Compilando contrato Simplicity...
-✅ Contrato compilado!
+⚙️  Compiling Simplicity contract...
+✅ Contract compiled!
 
-📍 Endereço do Puzzle:
+📍 Puzzle Address:
    tex1qjr5yzs...
 
-💰 Financiando puzzle com 0.1 L-BTC...
-✅ Puzzle financiado!
+💰 Funding puzzle with 0.1 L-BTC...
+✅ Puzzle funded!
    TXID: a1b2c3d4...
 
-💾 Informações salvas em: puzzle_a0dc65ff.json
+💾 Information saved to: puzzle_a0dc65ff.json
 
-🎉 PUZZLE CRIADO COM SUCESSO!
+🎉 PUZZLE CREATED SUCCESSFULLY!
 
-📢 Compartilhe com os participantes:
-   Endereço: tex1qjr5yzs...
-   Prêmio: 0.1 L-BTC
-   Hash do Secret: 0xa0dc65ff...
+📢 Share with participants:
+   Address: tex1qjr5yzs...
+   Prize: 0.1 L-BTC
+   Secret Hash: 0xa0dc65ff...
 
-🔍 Hint: A senha tem 7 caracteres
+🔍 Hint: The password has 7 characters
 
-⚠️  GUARDAR O SECRET EM SEGREDO!
-   Secret: satoshi (não compartilhe isso!)
+⚠️  KEEP THE SECRET SAFE!
+   Secret: satoshi (don't share this!)
 ```
 
-### 4. Adicionar Mais Fundos ao Jackpot (Opcional)
+### 4. Add More Funds to Jackpot (Optional)
 
 ```bash
-# Aumentar o prêmio para deixar mais atrativo
+# Increase the prize to make it more attractive
 cargo run --bin add-to-pot -- puzzle_a0dc65ff.json 0.05
 ```
 
-### 5. Resolver o Puzzle (Como Participante)
+**Output:**
+```
+💰 INCREASING JACKPOT
+=====================
 
-**ATENÇÃO:** O script `solve-puzzle` precisa ser editado manualmente para incluir o TXID e VOUT do UTXO.
+📍 Puzzle address: tex1qjr5yzs...
+💵 Current prize: 0.1 L-BTC
+➕ Adding: 0.05 L-BTC
 
-Passos:
-1. **Encontrar o UTXO do puzzle:**
+📤 Sending funds...
+✅ Funds added!
+   TXID: xyz123...
+
+💾 File updated: puzzle_a0dc65ff.json
+🎉 New estimated prize: 0.15000000 L-BTC
+
+📢 Share with participants that the jackpot has increased!
+```
+
+### 5. Solve the Puzzle
+
+When you know the secret, you can claim the prize:
 
 ```bash
-cd $HOME/Desktop/hub/blockchain/elements
-./src/elements-cli -chain=liquidtestnet listunspent 0 9999999 '["tex1qjr5yzs..."]'
+# First, find the UTXO
+./elements-cli.sh listunspent 0 9999999 '["tex1qjr5yzs..."]'
+
+# Then edit src/bin/solve_puzzle.rs with UTXO info (txid, vout, amount, asset)
+
+# Get destination address
+./elements-cli.sh getnewaddress
+
+# Solve the puzzle
+cargo run --bin solve-puzzle -- puzzle_a0dc65ff.json "satoshi" <your_address>
 ```
 
-Você verá algo como:
-```json
-[
-  {
-    "txid": "a1b2c3d4e5f6...",
-    "vout": 0,
-    "amount": 0.10000000,
-    "asset": "144c654344aa716d6f3abcc1ca90e5641e4e2a7f633bc09fe3baf64585819a49",
-    ...
-  }
-]
+**If correct:**
+```
+🎯 SOLVING PUZZLE
+=================
+
+📖 Reading puzzle from: puzzle_a0dc65ff.json
+   Puzzle address: tex1qjr5yzs...
+   Expected hash: 0xa0dc65ff...
+
+🔍 Verifying secret...
+✅ Secret is correct!
+
+⚙️  Compiling contract...
+✅ Contract compiled!
+
+💸 Creating spending transaction...
+🔐 Creating witness with secret...
+📡 Broadcasting transaction...
+
+🎉🎉🎉 SUCCESS! 🎉🎉🎉
+
+✅ Transaction broadcasted!
+   TXID: def456...
+
+💰 Prize sent to: <your_address>
+   Amount: 14997000 sats
+
+🏆 YOU WON THE PUZZLE!
 ```
 
-2. **Editar `src/bin/solve_puzzle.rs` e substituir:**
+## 📚 How It Works
 
-```rust
-// Linha ~120
-let txid_str = "a1b2c3d4e5f6..."; // Seu TXID real
-let vout = 0u32; // Seu vout real
-let value_sats = 10_000_000u64; // Valor em satoshis (0.1 BTC = 10M sats)
-```
+### The Smart Contract
 
-3. **Rodar o solver:**
+The puzzle uses a Simplicity contract (`examples/puzzle_jackpot.simf`) that:
 
-```bash
-cargo run --bin solve-puzzle -- puzzle_a0dc65ff.json "satoshi" <SEU_ENDERECO_DESTINO>
-```
+1. Takes a `TARGET_HASH` as a compile-time parameter
+2. Takes a `SECRET` as runtime witness data
+3. Computes `sha256(SECRET)`
+4. Verifies that the computed hash matches `TARGET_HASH`
+5. If correct, the transaction is valid and the prize is claimed!
 
-Se o secret estiver correto:
-```
-🎉🎉🎉 SUCESSO! 🎉🎉🎉
-
-✅ Transação transmitida!
-   TXID: f1e2d3c4...
-
-💰 Prêmio enviado para: <SEU_ENDERECO>
-   Valor: 9997000 sats
-
-🏆 VOCÊ GANHOU O PUZZLE!
-```
-
-## 🎓 Como Funciona Tecnicamente
-
-### Contrato Simplicity (`puzzle_jackpot.simf`)
-
-```rust
+```simplicity
 fn main() {
     let secret: u256 = witness::SECRET;
     let target_hash: u256 = param::TARGET_HASH;
     let computed_hash: u256 = sha2(secret);
 
-    // Verifica se o hash do secret fornecido bate com o hash esperado
+    // If this passes, you win!
     assert!(jet::eq_256(computed_hash, target_hash));
 }
 ```
 
-**Como funciona:**
-1. O contrato é compilado com um `TARGET_HASH` (parâmetro fixo)
-2. Fundos são enviados para um endereço Taproot que inclui este contrato
-3. Para gastar, você precisa fornecer um `SECRET` cujo SHA256 seja igual ao `TARGET_HASH`
-4. O Simplicity verifica on-chain se `sha256(SECRET) == TARGET_HASH`
-5. Se verdadeiro → transação válida, você ganha os fundos!
-6. Se falso → transação rejeitada pela network
+### Security Model
 
-### Taproot + Simplicity
+- **Trustless**: No intermediaries - the blockchain validates everything
+- **Transparent**: Contract code is open source
+- **Atomic**: Either you have the correct secret and win, or transaction fails
+- **First-come-first-served**: First valid transaction to be mined wins
+
+### Taproot Structure
+
+The puzzle uses Taproot script paths:
 
 ```
 Taproot Output
     │
-    ├── Internal Key (placeholder)
+    ├── Internal Key (placeholder - unspendable)
     └── Script Tree
-            └── Leaf: Simplicity Program (CMR do contrato compilado)
+            └── Leaf: Simplicity Program (CMR of contract)
 ```
 
-## 🎪 Ideias para Apresentação no Hackathon
+## 🏗️ Project Structure
 
-### 1. Demo Ao Vivo
-- Criar 3 puzzles com dificuldades diferentes:
-  - **Fácil**: "hello" (5 letras) - 0.01 BTC
-  - **Médio**: "satoshi" (7 letras) - 0.05 BTC
-  - **Difícil**: Hash de algo complexo - 0.1 BTC
+```
+hackathon_puzzle/
+├── src/bin/
+│   ├── create_puzzle.rs    # Create and fund puzzles
+│   ├── solve_puzzle.rs     # Solve puzzles and claim prizes
+│   ├── add_to_pot.rs       # Add more funds to jackpot
+│   └── export_program.rs   # Export compiled contract for analysis
+├── puzzle_*.json           # Generated puzzle files
+├── elements-cli.sh         # Wrapper script for Elements CLI
+├── check-puzzle.sh         # Verify puzzle and check UTXO status
+├── Cargo.toml              # Project configuration
+├── README.md               # This file
+└── CLAUDE.md               # Development guide
+```
 
-### 2. Website Simples
-Criar uma landing page com:
-- Lista de puzzles ativos
-- Hints progressivos
-- Contador de tentativas
-- Leaderboard
+## 🔧 Requirements
 
-### 3. Gamificação
-- **Hints progressivos**: A cada 10 minutos, libera uma dica
-- **Multiple puzzles**: Vários puzzles simultâneos
-- **Team competition**: Times competindo
+- **Rust**: 1.78.0 or higher
+- **Elements daemon**: Running on Liquid testnet
+- **Wallet**: With L-BTC for funding puzzles
+- **hal-simplicity**: For contract analysis (optional)
 
-### 4. Casos de Uso Reais
-- **Herança digital**: Família precisa juntar partes do secret
-- **Dead man's switch**: Puzzle se auto-resolve após X tempo
-- **Proof of work alternativo**: Quebrar hash em vez de minerar
-- **Educational games**: Ensinar criptografia
+## 💡 Use Cases
 
-## 📊 Pitch para Jurados
+Beyond games, this technology enables:
 
-**"Bitcoin Puzzle Hunt - Gamificando Contratos Inteligentes"**
+- **Digital Inheritance**: Family members combine secret fragments
+- **Educational CTFs**: Teach cryptography with real rewards
+- **Marketing Campaigns**: Viral puzzles for brand engagement
+- **Proof of Knowledge**: Prove you know something without revealing it
+- **Dead Man's Switch**: Time-locked secret release
 
-**Problema:**
-- Contratos inteligentes são complexos e intimidadores
-- Difícil demonstrar o valor de smart contracts para o público geral
-- Falta engajamento com blockchain além de especulação
+## 🔒 Security Considerations
 
-**Solução:**
-- Jogo on-chain onde qualquer um pode participar
-- Demonstra propriedades únicas de blockchain:
-  - ✅ Trustless (sem intermediários)
-  - ✅ Transparente (qualquer um vê as regras)
-  - ✅ Imutável (regras não mudam)
-  - ✅ Permissionless (qualquer um pode tentar)
+### For Organizers
 
-**Tech Stack:**
-- ⚡ **Simplicity**: Linguagem de contratos verificável formalmente
-- 🌊 **Liquid Network**: Sidechain do Bitcoin
-- 🔐 **Taproot**: Privacy e eficiência
-- 🦀 **Rust**: Performance e segurança
+- Use strong, random secrets (not dictionary words)
+- Never reuse secrets across puzzles
+- Keep the secret file secure until the game ends
+- Consider using high-entropy secrets (random hex strings)
 
-**Diferencial:**
-- Primeiro jogo educacional usando Simplicity
-- On-chain verification (não depende de oráculos)
-- Código aberto e educacional
+### For Solvers
 
-## 🚀 Próximos Passos (Após Hackathon)
+- First to broadcast a valid transaction wins
+- Use high fees or RBF for priority
+- The secret becomes public once you broadcast
+- Race condition: multiple solvers may find the secret simultaneously
 
-1. **Web Interface** - Frontend para criar/resolver puzzles
-2. **Time locks** - Puzzles que expiram
-3. **Multi-step puzzles** - Resolver vários desafios em sequência
-4. **NFT rewards** - Ganhar NFTs por resolver puzzles
-5. **ZK Proofs** - Resolver puzzle sem revelar o secret publicamente
+## 🛠️ Troubleshooting
 
-## 🐛 Troubleshooting
+### "Failed to compile contract"
+- Check that the parent SimplicityHL directory exists
+- Verify `../examples/puzzle_jackpot.simf` is accessible
 
-### Erro: "Parameter TARGET_HASH is missing"
-- Você está compilando o contrato sem fornecer argumentos
-- Use os scripts `create-puzzle` ou `solve-puzzle`
+### "Failed to connect to daemon"
+- Ensure elementsd is running: `ps aux | grep elementsd`
+- Start it with: `./src/elementsd -chain=liquidtestnet -daemon`
 
-### Erro: "Falha ao conectar com elementsd"
-- Verificar se elementsd está rodando: `ps aux | grep elementsd`
-- Verificar path correto em cada script
+### "Insufficient funds"
+- Check wallet balance: `./elements-cli.sh getbalance`
+- Use Liquid testnet faucet for test coins
 
-### Erro: "Secret incorreto"
-- Verifique se está usando o secret exato (case-sensitive)
-- Confira o hash SHA256
+### "Transaction rejected"
+- Wrong secret provided
+- UTXO info incorrect in solve_puzzle.rs
+- Insufficient fees
+- Asset ID mismatch
 
-### Erro: "UTXO não encontrado"
-- Use `elements-cli -chain=liquidtestnet listunspent` para verificar
-- Aguarde confirmação da transação de funding
+## 📖 Additional Resources
 
-## 📚 Recursos Adicionais
+- **Simplicity Language**: https://github.com/BlockstreamResearch/simplicity
+- **SimplicityHL**: https://github.com/BlockstreamResearch/rust-simplicity
+- **Elements**: https://elementsproject.org/
+- **Liquid Network**: https://liquid.net/
 
-- [Simplicity Docs](https://github.com/BlockstreamResearch/simplicity)
-- [Elements/Liquid Docs](https://elementsproject.org/)
-- [Taproot Explained](https://bitcoinops.org/en/topics/taproot/)
+## 🤝 Contributing
 
-## 🏆 Licença
+This is a hackathon project. Feel free to:
+- Report issues
+- Suggest improvements
+- Fork and experiment
+- Share your puzzles!
 
-MIT - Use à vontade, só não se esqueça de dar os créditos!
+## 📄 License
+
+MIT License - See LICENSE file for details
+
+## 🎉 Credits
+
+Built with:
+- **Simplicity** - Blockchain programming language
+- **SimplicityHL** - High-level Simplicity compiler
+- **Elements** - Sidechain platform
+- **Rust** - Systems programming language
 
 ---
 
-**Criado para Hackathon 2025 - Boa sorte! 🚀**
+**Have fun and happy puzzle hunting!** 🎯

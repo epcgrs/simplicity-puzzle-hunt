@@ -1,7 +1,7 @@
 #!/bin/bash
-# Wrapper para elements-cli com defaults configurados
+# Wrapper for elements-cli with configured defaults
 
 ELEMENTS_CLI="$HOME/Desktop/hub/blockchain/elements/src/elements-cli"
 
-# Executa elements-cli com chain e wallet pré-configurados
+# Executes elements-cli with pre-configured chain and wallet
 $ELEMENTS_CLI -chain=liquidtestnet -rpcwallet=my_wallet "$@"

@@ -1,17 +1,17 @@
 /*
- * CREATE PUZZLE - Cria e financia um puzzle na Liquid testnet
+ * CREATE PUZZLE - Creates and funds a puzzle on Liquid testnet
  *
- * Uso:
+ * Usage:
  *   cargo run --bin create-puzzle -- <secret> <prize_amount>
  *
- * Exemplo:
+ * Example:
  *   cargo run --bin create-puzzle -- "satoshi" 0.1
  *
- * Isso vai:
- * 1. Calcular o SHA256 do secret
- * 2. Criar um contrato Simplicity com esse hash
- * 3. Financiar com o valor especificado
- * 4. Printar o endereço e informações
+ * This will:
+ * 1. Calculate the SHA256 of the secret
+ * 2. Create a Simplicity contract with that hash
+ * 3. Fund it with the specified amount
+ * 4. Print the address and information
  */
 
 use anyhow::{Context, Result};
@@ -29,11 +29,11 @@ use std::str::FromStr;
 const PUZZLE_CONTRACT: &str = include_str!("../../../examples/puzzle_jackpot.simf");
 
 fn main() -> Result<()> {
-    // Parse argumentos
+    // Parse arguments
     let args: Vec<String> = env::args().collect();
     if args.len() != 3 {
-        eprintln!("Uso: {} <secret> <amount_in_btc>", args[0]);
-        eprintln!("\nExemplo:");
+        eprintln!("Usage: {} <secret> <amount_in_btc>", args[0]);
+        eprintln!("\nExample:");
         eprintln!("  {} \"satoshi\" 0.1", args[0]);
         std::process::exit(1);
     }
@@ -41,17 +41,17 @@ fn main() -> Result<()> {
     let secret = &args[1];
     let amount = &args[2];
 
-    println!("🎯 CRIANDO PUZZLE HUNT");
-    println!("====================");
+    println!("🎯 CREATING PUZZLE HUNT");
+    println!("========================");
     println!();
 
-    // 1. Calcular hash do secret
+    // 1. Calculate hash of the secret
     let mut hasher = Sha256::new();
     hasher.update(secret.as_bytes());
     let hash = hasher.finalize();
     let hash_hex = hex::encode(hash);
 
-    // Converter para u256 (32 bytes)
+    // Convert to u256 (32 bytes)
     let mut hash_bytes = [0u8; 32];
     hash_bytes.copy_from_slice(&hash);
     let target_hash = simplicityhl::num::U256::from_byte_array(hash_bytes);
@@ -60,7 +60,7 @@ fn main() -> Result<()> {
     println!("🔐 Hash (SHA256): 0x{}", hash_hex);
     println!();
 
-    // 2. Compilar o contrato com o hash
+    // 2. Compile the contract with the hash
     let mut arguments = HashMap::new();
     arguments.insert(
         simplicityhl::str::WitnessName::from_str_unchecked("TARGET_HASH"),
@@ -68,13 +68,13 @@ fn main() -> Result<()> {
     );
     let args = Arguments::from(arguments);
 
-    println!("⚙️  Compilando contrato Simplicity...");
+    println!("⚙️  Compiling Simplicity contract...");
     let compiled = CompiledProgram::new(PUZZLE_CONTRACT, args, false)
-        .map_err(|e| anyhow::anyhow!("Falha ao compilar contrato: {}", e))?;
-    println!("✅ Contrato compilado!");
+        .map_err(|e| anyhow::anyhow!("Failed to compile contract: {}", e))?;
+    println!("✅ Contract compiled!");
     println!();
 
-    // 3. Criar endereço Taproot
+    // 3. Create Taproot address
     let internal_key = XOnlyPublicKey::from_str(
         "50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0",
     )?;
@@ -101,61 +101,61 @@ fn main() -> Result<()> {
         &AddressParams::LIQUID_TESTNET,
     );
 
-    println!("📍 Endereço do Puzzle:");
+    println!("📍 Puzzle Address:");
     println!("   {}", address);
     println!();
 
-    // 4. Enviar fundos usando elements-cli
-    println!("💰 Financiando puzzle com {} L-BTC...", amount);
+    // 4. Send funds using elements-cli
+    println!("💰 Funding puzzle with {} L-BTC...", amount);
 
-    // NOTA: O elementsd deve estar rodando! Verificar com: ps aux | grep elementsd
+    // NOTE: elementsd must be running! Check with: ps aux | grep elementsd
     let elements_cli = "/Users/felipe/Desktop/hub/blockchain/elements/src/elements-cli";
     let output = Command::new(elements_cli)
         .args(&[
             "-chain=liquidtestnet",
-            "-rpcwallet=my_wallet",  // Usar a wallet com fundos
+            "-rpcwallet=my_wallet",  // Use wallet with funds
             "sendtoaddress",
             &address.to_string(),
             amount
         ])
         .output()
-        .context("Falha ao executar elements-cli")?;
+        .context("Failed to execute elements-cli")?;
 
     if !output.status.success() {
         let error = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow::anyhow!("Falha ao enviar fundos: {}", error));
+        return Err(anyhow::anyhow!("Failed to send funds: {}", error));
     }
 
     let txid = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    println!("✅ Puzzle financiado!");
+    println!("✅ Puzzle funded!");
     println!("   TXID: {}", txid);
     println!();
 
-    // 5. Salvar informações
+    // 5. Save information
     let info = serde_json::json!({
         "secret": secret,
         "hash": format!("0x{}", hash_hex),
         "address": address.to_string(),
         "amount": amount,
-        "hint": format!("A senha tem {} caracteres", secret.len()),
+        "hint": format!("The password has {} characters", secret.len()),
     });
 
     let filename = format!("puzzle_{}.json", &hash_hex[..8]);
     std::fs::write(&filename, serde_json::to_string_pretty(&info)?)?;
 
-    println!("💾 Informações salvas em: {}", filename);
+    println!("💾 Information saved to: {}", filename);
     println!();
-    println!("🎉 PUZZLE CRIADO COM SUCESSO!");
+    println!("🎉 PUZZLE CREATED SUCCESSFULLY!");
     println!();
-    println!("📢 Compartilhe com os participantes:");
-    println!("   Endereço: {}", address);
-    println!("   Prêmio: {} L-BTC", amount);
-    println!("   Hash do Secret: 0x{}", hash_hex);
+    println!("📢 Share with participants:");
+    println!("   Address: {}", address);
+    println!("   Prize: {} L-BTC", amount);
+    println!("   Secret Hash: 0x{}", hash_hex);
     println!();
-    println!("🔍 Hint: A senha tem {} caracteres", secret.len());
+    println!("🔍 Hint: The password has {} characters", secret.len());
     println!();
-    println!("⚠️  GUARDAR O SECRET EM SEGREDO!");
-    println!("   Secret: {} (não compartilhe isso!)", secret);
+    println!("⚠️  KEEP THE SECRET SAFE!");
+    println!("   Secret: {} (don't share this!)", secret);
 
     Ok(())
 }

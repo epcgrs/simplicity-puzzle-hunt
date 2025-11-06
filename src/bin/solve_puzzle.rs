@@ -1,17 +1,17 @@
 /*
- * SOLVE PUZZLE - Resolve e reclama o prêmio de um puzzle
+ * SOLVE PUZZLE - Solves and claims the prize from a puzzle
  *
- * Uso:
+ * Usage:
  *   cargo run --bin solve-puzzle -- <puzzle_json_file> <secret> <destination_address>
  *
- * Exemplo:
+ * Example:
  *   cargo run --bin solve-puzzle -- puzzle_2cf24dba.json "satoshi" tex1q...
  *
- * Isso vai:
- * 1. Ler as informações do puzzle
- * 2. Criar uma transação gastando o UTXO do puzzle
- * 3. Fornecer o secret como witness
- * 4. Transmitir e ganhar o prêmio!
+ * This will:
+ * 1. Read the puzzle information
+ * 2. Create a transaction spending the puzzle UTXO
+ * 3. Provide the secret as witness
+ * 4. Broadcast and win the prize!
  */
 
 use anyhow::{Context, Result};
@@ -31,11 +31,11 @@ use std::str::FromStr;
 const PUZZLE_CONTRACT: &str = include_str!("../../../examples/puzzle_jackpot.simf");
 
 fn main() -> Result<()> {
-    // Parse argumentos
+    // Parse arguments
     let args: Vec<String> = env::args().collect();
     if args.len() != 4 {
-        eprintln!("Uso: {} <puzzle_json> <secret> <destination_address>", args[0]);
-        eprintln!("\nExemplo:");
+        eprintln!("Usage: {} <puzzle_json> <secret> <destination_address>", args[0]);
+        eprintln!("\nExample:");
         eprintln!("  {} puzzle_2cf24dba.json \"satoshi\" tex1q...", args[0]);
         std::process::exit(1);
     }
@@ -44,41 +44,41 @@ fn main() -> Result<()> {
     let secret = &args[2];
     let dest_address = &args[3];
 
-    println!("🎯 RESOLVENDO PUZZLE");
-    println!("===================");
+    println!("🎯 SOLVING PUZZLE");
+    println!("=================");
     println!();
 
-    // 1. Ler informações do puzzle
-    println!("📖 Lendo puzzle de: {}", puzzle_file);
+    // 1. Read puzzle information
+    println!("📖 Reading puzzle from: {}", puzzle_file);
     let puzzle_data = std::fs::read_to_string(puzzle_file)?;
     let puzzle: serde_json::Value = serde_json::from_str(&puzzle_data)?;
 
     let expected_hash = puzzle["hash"].as_str().unwrap();
     let puzzle_address = puzzle["address"].as_str().unwrap();
 
-    println!("   Endereço do puzzle: {}", puzzle_address);
-    println!("   Hash esperado: {}", expected_hash);
+    println!("   Puzzle address: {}", puzzle_address);
+    println!("   Expected hash: {}", expected_hash);
     println!();
 
-    // 2. Verificar se o secret está correto
-    println!("🔍 Verificando secret...");
+    // 2. Verify the secret is correct
+    println!("🔍 Verifying secret...");
     let mut hasher = Sha256::new();
     hasher.update(secret.as_bytes());
     let hash = hasher.finalize();
     let hash_hex = format!("0x{}", hex::encode(hash));
 
     if hash_hex != expected_hash {
-        eprintln!("❌ ERRO: Secret incorreto!");
-        eprintln!("   Esperado: {}", expected_hash);
-        eprintln!("   Obtido:   {}", hash_hex);
+        eprintln!("❌ ERROR: Incorrect secret!");
+        eprintln!("   Expected: {}", expected_hash);
+        eprintln!("   Got:      {}", hash_hex);
         std::process::exit(1);
     }
 
-    println!("✅ Secret correto!");
+    println!("✅ Secret is correct!");
     println!();
 
-    // 3. Compilar o contrato
-    println!("⚙️  Compilando contrato...");
+    // 3. Compile the contract
+    println!("⚙️  Compiling contract...");
     let mut hash_bytes = [0u8; 32];
     hash_bytes.copy_from_slice(&hash);
     let target_hash = simplicityhl::num::U256::from_byte_array(hash_bytes);
@@ -91,60 +91,60 @@ fn main() -> Result<()> {
     let args = Arguments::from(arguments);
 
     let compiled = CompiledProgram::new(PUZZLE_CONTRACT, args, false)
-        .map_err(|e| anyhow::anyhow!("Falha ao compilar contrato: {}", e))?;
-    println!("✅ Contrato compilado!");
+        .map_err(|e| anyhow::anyhow!("Failed to compile contract: {}", e))?;
+    println!("✅ Contract compiled!");
     println!();
 
-    // 4. Conectar ao elementsd (deve estar rodando!)
+    // 4. Connect to elementsd (must be running!)
     let mut daemon = ElementsD::new("/Users/felipe/Desktop/hub/blockchain/elements/src/elementsd")
-        .map_err(|e| anyhow::anyhow!("Falha ao criar cliente elementsd: {:?}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to create elementsd client: {:?}", e))?;
     daemon.chain = Some("liquidtestnet".to_string());
 
-    // 5. Encontrar o UTXO do puzzle
-    println!("🔎 Procurando UTXO do puzzle...");
+    // 5. Find the puzzle UTXO
+    println!("🔎 Looking for puzzle UTXO...");
     let address = Address::from_str(puzzle_address)?;
 
-    // Aqui você precisaria implementar a busca pelo UTXO
-    // Por simplicidade, vamos assumir que você tem o txid e vout
-    // TODO: Implementar busca automática de UTXO
+    // Here you would need to implement UTXO search
+    // For simplicity, we'll assume you have the txid and vout
+    // TODO: Implement automatic UTXO search
 
-    println!("⚠️  NOTA: Você precisa fornecer o TXID e VOUT manualmente");
+    println!("⚠️  NOTE: You need to provide the TXID and VOUT manually");
     println!("   Use: elements-cli listunspent");
-    println!("   E procure pelo endereço: {}", puzzle_address);
+    println!("   And search for the address: {}", puzzle_address);
     println!();
-    println!("   Depois, edite este script para incluir:");
-    println!("   - txid: o ID da transação");
-    println!("   - vout: o índice do output");
-    println!("   - value: o valor em satoshis");
-    println!("   - asset: o asset ID");
+    println!("   Then, edit this script to include:");
+    println!("   - txid: the transaction ID");
+    println!("   - vout: the output index");
+    println!("   - value: the value in satoshis");
+    println!("   - asset: the asset ID");
     println!();
 
-    // Exemplo de como seria (você precisa preencher):
-    let txid_str = "SEU_TXID_AQUI";
+    // Example of how it would be (you need to fill in):
+    let txid_str = "YOUR_TXID_HERE";
     let vout = 0u32;
-    let value_sats = 10_000_000u64; // 0.1 BTC = 10 milhões de sats
+    let value_sats = 10_000_000u64; // 0.1 BTC = 10 million sats
 
-    if txid_str == "SEU_TXID_AQUI" {
-        eprintln!("❌ ERRO: Você precisa editar o script e adicionar o TXID/VOUT");
-        eprintln!("   Execute: elements-cli -chain=liquidtestnet listunspent");
+    if txid_str == "YOUR_TXID_HERE" {
+        eprintln!("❌ ERROR: You need to edit the script and add the TXID/VOUT");
+        eprintln!("   Run: elements-cli -chain=liquidtestnet listunspent");
         std::process::exit(1);
     }
 
     let txid = elements::Txid::from_str(txid_str)?;
     let outpoint = OutPoint::new(txid, vout);
 
-    println!("✅ UTXO encontrado: {}:{}", txid, vout);
+    println!("✅ UTXO found: {}:{}", txid, vout);
     println!();
 
-    // 6. Criar transação de gasto
-    println!("💸 Criando transação de gasto...");
+    // 6. Create spending transaction
+    println!("💸 Creating spending transaction...");
 
     let dest_addr = Address::from_str(dest_address)?;
     let fee_sats = 3_000u64;
     let output_value = value_sats - fee_sats;
 
-    // Obter asset ID da testnet (você precisa pegar isso do UTXO real)
-    // Este é um placeholder - use o asset do seu UTXO real
+    // Get testnet asset ID (you need to get this from the real UTXO)
+    // This is a placeholder - use the asset from your real UTXO
     let asset = confidential::Asset::Explicit(elements::AssetId::default());
 
     let mut psbt = Psbt::from_tx(elements::Transaction {
@@ -170,8 +170,8 @@ fn main() -> Result<()> {
         ],
     });
 
-    // 7. Criar witness com o secret
-    println!("🔐 Criando witness com secret...");
+    // 7. Create witness with the secret
+    println!("🔐 Creating witness with secret...");
 
     let secret_value = Value::u256(target_hash);
     let mut witness_map = HashMap::new();
@@ -181,14 +181,14 @@ fn main() -> Result<()> {
     );
     let witness_values = WitnessValues::from(witness_map);
 
-    // 8. Satisfazer o programa e criar witness final
+    // 8. Satisfy the program and create final witness
     let satisfied = compiled
         .satisfy(witness_values)
-        .context("Falha ao satisfazer programa")?;
+        .context("Failed to satisfy program")?;
 
     let (program_bytes, witness_bytes) = satisfied.redeem().encode_to_vec();
 
-    // 9. Adicionar witness à transação
+    // 9. Add witness to transaction
     let internal_key = XOnlyPublicKey::from_str(
         "50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0",
     )?;
@@ -213,8 +213,8 @@ fn main() -> Result<()> {
         control_block.serialize(),
     ]);
 
-    // 10. Transmitir transação
-    println!("📡 Transmitindo transação...");
+    // 10. Broadcast transaction
+    println!("📡 Broadcasting transaction...");
 
     let tx = psbt
         .extract_tx()
@@ -223,15 +223,15 @@ fn main() -> Result<()> {
     match daemon.send_raw_transaction(&tx) {
         txid => {
             println!();
-            println!("🎉🎉🎉 SUCESSO! 🎉🎉🎉");
+            println!("🎉🎉🎉 SUCCESS! 🎉🎉🎉");
             println!();
-            println!("✅ Transação transmitida!");
+            println!("✅ Transaction broadcasted!");
             println!("   TXID: {}", txid);
             println!();
-            println!("💰 Prêmio enviado para: {}", dest_address);
-            println!("   Valor: {} sats", output_value);
+            println!("💰 Prize sent to: {}", dest_address);
+            println!("   Amount: {} sats", output_value);
             println!();
-            println!("🏆 VOCÊ GANHOU O PUZZLE!");
+            println!("🏆 YOU WON THE PUZZLE!");
         }
     }
 
