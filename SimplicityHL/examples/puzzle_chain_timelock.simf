@@ -1,0 +1,119 @@
+// PUZZLE CHAIN WITH TIMELOCK AND AUTO-MIGRATION
+//
+// 3 Spending Paths:
+// 1. SOLVE: Before timelock expires, provide correct secret
+// 2. ADVANCE: Before timelock expires, move to next puzzle
+// 3. MIGRATE: After timelock expires, move to NEW chain
+//
+// This creates a "reset" mechanism:
+// - Players have X minutes to solve each puzzle
+// - If time expires, chain is locked for solving
+// - Anyone can migrate funds to a new chain (with new secrets!)
+
+param TARGET_HASH: u256;           // Hash for this puzzle
+param NEXT_PUZZLE_ADDRESS: u256;   // Next puzzle in current chain
+param CREATION_TIME: u64;          // When this UTXO was created (block time)
+param TIMELOCK_DURATION: u64;      // Duration in seconds (e.g., 300 = 5 min)
+param NEW_CHAIN_TEMPLATE: u256;    // Template for deriving new chain address
+param ALLOW_ADVANCE: bool;         // Can advance to next puzzle?
+
+witness SECRET: Option<u256>;              // For solving
+witness NEW_CHAIN_ADDRESS: Option<u256>;   // For migration after timelock
+
+fn main() {
+    // Check if timelock has expired
+    let current_time: u64 = jet::current_time();
+    let elapsed: u64 = current_time - CREATION_TIME;
+    let is_locked: bool = elapsed > TIMELOCK_DURATION;
+
+    if let Some(secret) = SECRET {
+        // ═══════════════════════════════════════════════════════════
+        // PATH 1: SOLVE THE PUZZLE
+        // ═══════════════════════════════════════════════════════════
+
+        // Can only solve BEFORE timelock expires!
+        assert!(!is_locked,
+                "Timelock expired! Cannot solve anymore. Must migrate to new chain.");
+
+        // Verify secret
+        let input_value: u64 = jet::current_value();
+        let value_u256: u256 = u256::from(input_value);
+
+        let hasher = jet::sha_256_ctx_8_init();
+        let hasher = jet::sha_256_ctx_8_add_32(hasher, secret);
+        let hasher = jet::sha_256_ctx_8_add_32(hasher, value_u256);
+        let computed_hash = jet::sha_256_ctx_8_finalize(hasher);
+
+        assert!(jet::eq_256(computed_hash, TARGET_HASH),
+                "Wrong secret!");
+
+        // ✅ Winner takes all!
+
+    } else if let Some(new_chain_addr) = NEW_CHAIN_ADDRESS {
+        // ═══════════════════════════════════════════════════════════
+        // PATH 2: MIGRATE TO NEW CHAIN
+        // ═══════════════════════════════════════════════════════════
+
+        // Can only migrate AFTER timelock expires!
+        assert!(is_locked,
+                "Timelock not expired yet! Cannot migrate.");
+
+        // Verify that new chain address is correctly derived
+        // (This prevents arbitrary addresses - must follow template)
+        let expected_addr = derive_new_chain_address(NEW_CHAIN_TEMPLATE, current_time);
+        assert!(jet::eq_256(new_chain_addr, expected_addr),
+                "Invalid new chain address!");
+
+        // Output must go to the new chain
+        let output_spk = jet::output_script_pubkey(0);
+        assert!(jet::eq_256(output_spk, new_chain_addr),
+                "Output must go to new chain!");
+
+        // Value should not decrease significantly
+        let input_value = jet::current_value();
+        let output_value = jet::output_value(0);
+        assert!(output_value >= input_value - 1000,
+                "Cannot decrease value significantly!");
+
+        // ✅ Migration approved!
+        // Funds moved to new chain with new secrets
+
+    } else if ALLOW_ADVANCE {
+        // ═══════════════════════════════════════════════════════════
+        // PATH 3: ADVANCE TO NEXT PUZZLE (in current chain)
+        // ═══════════════════════════════════════════════════════════
+
+        // Can only advance BEFORE timelock expires!
+        assert!(!is_locked,
+                "Timelock expired! Cannot advance in current chain. Must migrate to new chain.");
+
+        // Output must go to next puzzle in chain
+        let output_spk = jet::output_script_pubkey(0);
+        assert!(jet::eq_256(output_spk, NEXT_PUZZLE_ADDRESS),
+                "Must advance to next puzzle!");
+
+        // Value should not decrease significantly
+        let input_value = jet::current_value();
+        let output_value = jet::output_value(0);
+        assert!(output_value >= input_value - 1000,
+                "Cannot decrease value!");
+
+        // ✅ Advance approved!
+
+    } else {
+        // No valid spending path
+        assert!(false, "No valid spending path!");
+    }
+}
+
+// Helper function: derive new chain address from template
+fn derive_new_chain_address(template: u256, timestamp: u64) -> u256 {
+    // Derive deterministically from template + timestamp
+    // This ensures new chain is predictable but different
+    let time_u256 = u256::from(timestamp);
+    let seed = jet::sha_256_concat(template, time_u256);
+
+    // In practice, this would derive a proper address
+    // For now, return the hash
+    seed
+}

@@ -1,0 +1,57 @@
+// PUZZLE WITH CONSOLIDATION - Best of both worlds
+// Hash includes INITIAL_VALUE (fixed), not current value
+// This allows:
+// 1. Anyone can consolidate without knowing secret
+// 2. Puzzle is always solvable with same secret
+// 3. Pot can grow indefinitely
+
+param TARGET_HASH: u256;           // SHA256(secret || initial_value)
+param INITIAL_VALUE: u64;          // Value when puzzle was created (fixed!)
+param PUZZLE_SCRIPT_PUBKEY: u256;  // ScriptPubKey of this puzzle
+
+witness SECRET: Option<u256>;      // Optional: for solving only
+
+fn main() {
+    if let Some(secret) = SECRET {
+        // PATH 1: SOLVE THE PUZZLE
+
+        // Use INITIAL_VALUE (not current value!) for hash
+        let initial_value_u256: u256 = u256::from(INITIAL_VALUE);
+
+        // Compute: SHA256(secret || initial_value)
+        let hasher = jet::sha_256_ctx_8_init();
+        let hasher = jet::sha_256_ctx_8_add_32(hasher, secret);
+        let hasher = jet::sha_256_ctx_8_add_32(hasher, initial_value_u256);
+        let computed_hash = jet::sha_256_ctx_8_finalize(hasher);
+
+        // Verify hash matches
+        assert!(jet::eq_256(computed_hash, TARGET_HASH),
+                "Wrong secret!");
+
+        // Winner takes all! No restrictions on outputs
+
+    } else {
+        // PATH 2: CONSOLIDATE FUNDS (anyone can do this!)
+
+        // Get current input value
+        let input_value: u64 = jet::current_value();
+
+        // Output must go back to the SAME puzzle
+        let output_spk = jet::output_script_pubkey(0);
+        assert!(jet::eq_256(output_spk, PUZZLE_SCRIPT_PUBKEY),
+                "Consolidation: output must return to puzzle!");
+
+        // Output value must be >= input (minus small fee allowance)
+        let output_value: u64 = jet::output_value(0);
+        let min_output = input_value - 1000u64;  // Allow 1000 sats fee
+
+        assert!(output_value >= min_output,
+                "Consolidation: cannot decrease value!");
+
+        // ✅ Consolidation approved!
+        // This allows anyone to:
+        // - Combine multiple UTXOs into one
+        // - Add more funds to the pot
+        // - Keep the puzzle alive and growing
+    }
+}

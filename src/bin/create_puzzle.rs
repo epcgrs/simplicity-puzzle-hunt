@@ -2,19 +2,26 @@
  * CREATE PUZZLE - Creates and funds a puzzle on Liquid testnet
  *
  * Usage:
- *   cargo run --bin create-puzzle -- <secret> <prize_amount>
+ *   cargo run --bin create_puzzle -- <secret> <prize_amount> [hint]
  *
- * Example:
- *   cargo run --bin create-puzzle -- "satoshi" 0.1
+ * Examples:
+ *   cargo run --bin create_puzzle -- "satoshi" 0.1
+ *   cargo run --bin create_puzzle -- "bitcoin" 0.5 "The creator of Bitcoin"
+ *   cargo run --bin create_puzzle -- "moon" 0.2 "Where Bitcoin is going 🚀"
  *
  * This will:
  * 1. Calculate the SHA256 of the secret
  * 2. Create a Simplicity contract with that hash
  * 3. Fund it with the specified amount
- * 4. Print the address and information
+ * 4. Save puzzle information with hint
+ * 5. Print the address and puzzle details
+ *
+ * The hint parameter is optional. If not provided, it defaults to
+ * showing the character count of the secret.
  */
 
 use anyhow::{Context, Result};
+use chrono;
 use elements::secp256k1_zkp as secp256k1;
 use elements::{Address, AddressParams};
 use secp256k1::XOnlyPublicKey;
@@ -26,28 +33,56 @@ use std::env;
 use std::process::Command;
 use std::str::FromStr;
 
-const PUZZLE_CONTRACT: &str = include_str!("../../../examples/puzzle_jackpot.simf");
+const PUZZLE_CONTRACT: &str = include_str!("../../../SimplicityHL/examples/puzzle_jackpot.simf");
 
 fn main() -> Result<()> {
     // Parse arguments
     let args: Vec<String> = env::args().collect();
-    if args.len() != 3 {
-        eprintln!("Usage: {} <secret> <amount_in_btc>", args[0]);
-        eprintln!("\nExample:");
+
+    if args.len() < 3 || args.len() > 4 {
+        eprintln!("Usage: {} <secret> <amount_in_btc> [hint]", args[0]);
+        eprintln!("\nExamples:");
         eprintln!("  {} \"satoshi\" 0.1", args[0]);
+        eprintln!("  {} \"bitcoin\" 0.5 \"The creator of Bitcoin\"", args[0]);
+        eprintln!("  {} \"moon\" 0.2 \"Where Bitcoin is going 🚀\"", args[0]);
+        eprintln!("\nThe hint is optional and will help participants guess the secret.");
         std::process::exit(1);
     }
 
     let secret = &args[1];
     let amount = &args[2];
+    let hint = if args.len() == 4 {
+        args[3].clone()
+    } else {
+        format!("The secret has {} characters", secret.len())
+    };
 
-    println!("🎯 CREATING PUZZLE HUNT");
-    println!("========================");
+    println!("╔══════════════════════════════════════╗");
+    println!("║       🎯 CREATING PUZZLE HUNT 🎯     ║");
+    println!("╚══════════════════════════════════════╝");
     println!();
 
     // 1. Calculate hash of the secret
+    println!("📋 Puzzle Configuration:");
+    println!("   📝 Secret: {}", secret);
+    println!("   💰 Amount: {} L-BTC", amount);
+    println!("   💡 Hint: \"{}\"", hint);
+    println!();
+
+    println!("🔐 Processing secret and value...");
+    // Convert secret to u256 (32 bytes) with right-padding
+    let mut secret_bytes = [0u8; 32];
+    let secret_raw = secret.as_bytes();
+    let len = secret_raw.len().min(32);
+    secret_bytes[32 - len..].copy_from_slice(&secret_raw[..len]);
+
+    // Parse amount to validate it's a valid number
+    let _amount_btc: f64 = amount.parse()
+        .context("Invalid amount format")?;
+
+    // Calculate SHA256 of just the secret
     let mut hasher = Sha256::new();
-    hasher.update(secret.as_bytes());
+    hasher.update(&secret_bytes);
     let hash = hasher.finalize();
     let hash_hex = hex::encode(hash);
 
@@ -56,8 +91,8 @@ fn main() -> Result<()> {
     hash_bytes.copy_from_slice(&hash);
     let target_hash = simplicityhl::num::U256::from_byte_array(hash_bytes);
 
-    println!("📝 Secret: {}", secret);
-    println!("🔐 Hash (SHA256): 0x{}", hash_hex);
+    println!("✅ Target Hash computed: 0x{}", hash_hex);
+    println!("   Formula: SHA256(secret)");
     println!();
 
     // 2. Compile the contract with the hash
@@ -131,31 +166,53 @@ fn main() -> Result<()> {
     println!("   TXID: {}", txid);
     println!();
 
-    // 5. Save information
-    let info = serde_json::json!({
-        "secret": secret,
-        "hash": format!("0x{}", hash_hex),
+    // 5. Save puzzle information
+    let public_info = serde_json::json!({
+        "target_hash": format!("0x{}", hash_hex),
         "address": address.to_string(),
+        "txid": txid,
+        "vout": 0,
         "amount": amount,
-        "hint": format!("The password has {} characters", secret.len()),
+        "hint": hint.clone(),
+        "created_at": chrono::Local::now().to_rfc3339(),
     });
 
     let filename = format!("puzzle_{}.json", &hash_hex[..8]);
-    std::fs::write(&filename, serde_json::to_string_pretty(&info)?)?;
+    std::fs::write(&filename, serde_json::to_string_pretty(&public_info)?)?;
 
-    println!("💾 Information saved to: {}", filename);
+    // Save private info for creator only
+    let private_info = serde_json::json!({
+        "secret": secret,
+        "hash": format!("0x{}", hash_hex),
+        "txid": txid,
+        "amount": amount,
+        "hint": hint.clone(),
+        "address": address.to_string(),
+        "created_at": chrono::Local::now().to_rfc3339(),
+    });
+
+    let private_filename = format!("puzzle_{}_SECRET.json", &hash_hex[..8]);
+    std::fs::write(&private_filename, serde_json::to_string_pretty(&private_info)?)?;
+
+    println!("💾 Files saved:");
+    println!("   📄 Public file: {}", filename);
+    println!("   🔒 Private file: {}", private_filename);
     println!();
-    println!("🎉 PUZZLE CREATED SUCCESSFULLY!");
+    println!("╔══════════════════════════════════════╗");
+    println!("║    🎉 PUZZLE CREATED SUCCESSFULLY!    ║");
+    println!("╚══════════════════════════════════════╝");
     println!();
     println!("📢 Share with participants:");
-    println!("   Address: {}", address);
-    println!("   Prize: {} L-BTC", amount);
-    println!("   Secret Hash: 0x{}", hash_hex);
+    println!("   📍 Address: {}", address);
+    println!("   💰 Prize: {} L-BTC", amount);
+    println!("   💡 Hint: \"{}\"", hint);
+    println!("   🔐 Target Hash: 0x{}", hash_hex);
+    println!("   📄 Puzzle file: {}", filename);
     println!();
-    println!("🔍 Hint: The password has {} characters", secret.len());
-    println!();
-    println!("⚠️  KEEP THE SECRET SAFE!");
-    println!("   Secret: {} (don't share this!)", secret);
+    println!("⚠️  IMPORTANT:");
+    println!("   - DO NOT share the _SECRET.json file!");
+    println!("   - The secret is case-sensitive");
+    println!("   - Share the {} file with participants", filename);
 
     Ok(())
 }

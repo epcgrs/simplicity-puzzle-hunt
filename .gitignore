@@ -21,3 +21,11 @@ puzzle_*.json
 *~
 *.swp
 *.swo
+old_puzzles/
+bkp/
+
+# Archived puzzles directory
+archived_puzzles/
+
+# Documentation/notes
+docs/

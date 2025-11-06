@@ -1,0 +1,4 @@
+#!/bin/bash
+# Convenience script for Elements CLI on Liquid Testnet
+
+/Users/felipe/Desktop/hub/blockchain/elements/src/elements-cli -chain=liquidtestnet "$@"

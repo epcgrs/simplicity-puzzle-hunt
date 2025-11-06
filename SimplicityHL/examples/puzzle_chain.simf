@@ -1,0 +1,51 @@
+// PUZZLE CHAIN - Pre-defined sequence of puzzles
+// Anyone can "advance" to the next puzzle without knowing the secret
+// But output MUST go to the specific next puzzle address
+
+param TARGET_HASH: u256;           // Hash for THIS puzzle version
+param NEXT_PUZZLE_ADDRESS: u256;   // Address of NEXT puzzle (pre-defined!)
+param ALLOW_ADVANCE: bool;         // Can advance to next puzzle?
+
+witness SECRET: Option<u256>;      // Optional: for solving, not advancing
+
+fn main() {
+    if let Some(secret) = SECRET {
+        // PATH 1: SOLVE THIS PUZZLE
+
+        let input_value: u64 = jet::current_value();
+        let value_u256: u256 = u256::from(input_value);
+
+        // Verify: SHA256(secret || value)
+        let hasher = jet::sha_256_ctx_8_init();
+        let hasher = jet::sha_256_ctx_8_add_32(hasher, secret);
+        let hasher = jet::sha_256_ctx_8_add_32(hasher, value_u256);
+        let computed_hash = jet::sha_256_ctx_8_finalize(hasher);
+
+        assert!(jet::eq_256(computed_hash, TARGET_HASH),
+                "Wrong secret!");
+
+        // Winner takes all! No restrictions
+
+    } else {
+        // PATH 2: ADVANCE TO NEXT PUZZLE (without solving)
+
+        // Check if advancing is allowed
+        assert!(ALLOW_ADVANCE,
+                "Advancing is not allowed for this puzzle!");
+
+        // CRITICAL: Output MUST go to the pre-defined next puzzle
+        let output_spk = jet::output_script_pubkey(0);
+        assert!(jet::eq_256(output_spk, NEXT_PUZZLE_ADDRESS),
+                "Must advance to the next puzzle in the chain!");
+
+        // Value must not decrease (allow small fee)
+        let input_value = jet::current_value();
+        let output_value = jet::output_value(0);
+        assert!(output_value >= input_value - 1000,
+                "Cannot decrease value significantly!");
+
+        // ✅ Advance approved!
+        // This invalidates all attempts on the current puzzle
+        // Players must now solve the NEXT puzzle with a different secret
+    }
+}
