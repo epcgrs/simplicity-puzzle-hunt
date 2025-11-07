@@ -1,4 +1,49 @@
 #!/bin/bash
-# Convenience script for Elements CLI on Liquid Testnet
+# Elements CLI Wrapper Script
+# This script provides a convenient interface to the Elements CLI
+# It loads configuration from config.env or uses defaults
 
-/Users/felipe/Desktop/hub/blockchain/elements/src/elements-cli -chain=liquidtestnet "$@"
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Load configuration if available
+if [ -f "$SCRIPT_DIR/config.env" ]; then
+    source "$SCRIPT_DIR/config.env"
+else
+    # Check for example configuration file
+    if [ -f "$SCRIPT_DIR/config.example.env" ]; then
+        echo "⚠️  WARNING: config.env not found!"
+        echo "   Please copy config.example.env to config.env and configure it:"
+        echo "   cp config.example.env config.env"
+        echo "   Then edit config.env with your Elements installation path"
+        echo ""
+        echo "   Attempting to use default path..."
+    fi
+
+    # Try common default paths
+    if [ -f "$HOME/elements/src/elements-cli" ]; then
+        ELEMENTS_CLI_PATH="$HOME/elements/src/elements-cli"
+    elif [ -f "/usr/local/bin/elements-cli" ]; then
+        ELEMENTS_CLI_PATH="/usr/local/bin/elements-cli"
+    elif [ -f "$HOME/Desktop/hub/blockchain/elements/src/elements-cli" ]; then
+        # Fallback to your specific path for compatibility
+        ELEMENTS_CLI_PATH="$HOME/Desktop/hub/blockchain/elements/src/elements-cli"
+    else
+        echo "❌ ERROR: elements-cli not found!"
+        echo "   Please create config.env from config.example.env and set ELEMENTS_CLI_PATH"
+        exit 1
+    fi
+fi
+
+# Set default chain if not configured
+ELEMENTS_CHAIN=${ELEMENTS_CHAIN:-liquidtestnet}
+
+# Check if elements-cli exists at the configured path
+if [ ! -f "$ELEMENTS_CLI_PATH" ]; then
+    echo "❌ ERROR: elements-cli not found at: $ELEMENTS_CLI_PATH"
+    echo "   Please check your config.env file and ensure ELEMENTS_CLI_PATH is correct"
+    exit 1
+fi
+
+# Execute elements-cli with the provided arguments
+"$ELEMENTS_CLI_PATH" -chain="$ELEMENTS_CHAIN" "$@"

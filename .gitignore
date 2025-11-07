@@ -29,3 +29,6 @@ archived_puzzles/
 
 # Documentation/notes
 docs/
+
+# Configuration file (contains local paths)
+config.env

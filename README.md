@@ -6,8 +6,9 @@
 - [Overview](#-overview)
 - [Quick Start](#-quick-start)
 - [How It Works](#-how-it-works)
-- [Advanced Puzzle Types](#-advanced-puzzle-types)
 - [Project Structure](#-project-structure)
+- [Implemented Functions](#-implemented-functions)
+- [Future Development Projects](#-future-development-projects)
 - [Security Considerations](#-security-considerations)
 - [Troubleshooting](#-troubleshooting)
 - [Contributing](#-contributing)
@@ -22,11 +23,12 @@ This project implements a cryptographic "treasure hunt" game on the Liquid Netwo
 
 ### Key Features
 
-- **Multiple puzzle types**: Simple, time-locked, chained, and consolidation puzzles
+- **Basic Puzzle Implemented**: SHA256 verification puzzle fully tested and validated ✅
 - **Fixed prize pools**: Prize amount is set at puzzle creation
 - **Transparent rules**: All logic is in the Simplicity smart contract
 - **Trustless execution**: No intermediaries - blockchain validates everything
 - **Educational tool**: Perfect for teaching cryptography and blockchain concepts
+- **Future Extensions**: Templates ready for time-locked, chained, and consolidation puzzles (not yet implemented)
 
 ## ⚡ Quick Start
 
@@ -46,21 +48,44 @@ cd simplicity-puzzle-hunt
 cargo build --release
 ```
 
-### 2. Start Elements Daemon
+### 2. Configure Elements Path
+
+The project needs to know where your Elements installation is located. Create a configuration file:
+
+```bash
+# Copy the example configuration file
+cp config.example.env config.env
+
+# Edit config.env with your Elements installation path
+# You need to set at least:
+# - ELEMENTS_CLI_PATH: Path to your elements-cli binary
+# - ELEMENTS_DAEMON_PATH: Path to your elementsd binary
+nano config.env  # or use your preferred editor
+```
+
+Example configuration:
+```bash
+ELEMENTS_CLI_PATH=/path/to/elements/src/elements-cli
+ELEMENTS_DAEMON_PATH=/path/to/elements/src/elementsd
+ELEMENTS_CHAIN=liquidtestnet
+WALLET_NAME=my_wallet
+```
+
+### 3. Start Elements Daemon
 
 ```bash
 # Check if running
 ps aux | grep elementsd
 
-# If not running, start it:
-cd $HOME/Desktop/hub/blockchain/elements
-./src/elementsd -chain=liquidtestnet -daemon
+# If not running, start it using your configured path:
+# Replace with your actual path from config.env
+/path/to/elements/src/elementsd -chain=liquidtestnet -daemon
 
-# Create or load wallet
-./src/elements-cli -chain=liquidtestnet createwallet "my_wallet"
+# Create or load wallet using the elements-cli wrapper
+./elements-cli createwallet "my_wallet"
 ```
 
-### 3. Create Your First Puzzle
+### 4. Create Your First Puzzle
 
 ```bash
 # Create puzzle with secret "satoshi" and 0.1 L-BTC prize
@@ -101,7 +126,7 @@ cargo run --bin create-puzzle -- "satoshi" 0.1 "Hint: Bitcoin's creator"
 ╚══════════════════════════════════════╝
 ```
 
-### 4. List Active Puzzles
+### 5. List Active Puzzles
 
 ```bash
 # Interactive mode - asks to archive solved puzzles
@@ -111,7 +136,7 @@ cargo run --bin create-puzzle -- "satoshi" 0.1 "Hint: Bitcoin's creator"
 ./list-puzzles.sh --auto
 ```
 
-### 5. Solve a Puzzle
+### 6. Solve a Puzzle
 
 ```bash
 # Using the puzzle file and secret
@@ -147,7 +172,7 @@ cargo run --bin solve-puzzle -- puzzle_a0dc65ff.json "satoshi" <your_liquid_addr
 
 ### The Simplicity Smart Contract
 
-The core puzzle logic is implemented in Simplicity (`SimplicityHL/examples/puzzle_jackpot.simf`):
+The core puzzle logic currently implemented and tested is the **Basic Puzzle** (`SimplicityHL/examples/puzzle_jackpot.simf`):
 
 ```simplicity
 // PUZZLE WITH SHA256 VERIFICATION
@@ -178,35 +203,6 @@ Taproot Output
             └── Leaf: Simplicity Program (Contract Merkle Root)
 ```
 
-## 🎮 Advanced Puzzle Types
-
-
-### 1. **Basic Puzzle** (`puzzle_jackpot.simf`)
-- SHA256(secret) verification
-- Once created, the prize amount cannot be changed
-
-### 2. **Time-Locked Puzzle** (`puzzle_chain_timelock.simf`)
-- Adds minimum block height requirement
-- Puzzle can only be solved after specific time
-- Perfect for scheduled reveals
-- Uses SHA256(secret) formula
-
-### 3. **Chained Puzzles** (`puzzle_chain.simf`)
-- Multiple puzzles that must be solved in sequence
-- Each solution reveals the next challenge
-- Great for multi-stage challenges or treasure hunts
-- Uses SHA256(secret) formula
-
-### 4. **Consolidation Puzzle** (`puzzle_consolidation.simf`)
-- Requires multiple secrets to unlock
-- Can implement M-of-N schemes
-- Useful for group challenges or multi-sig scenarios
-- Uses SHA256(secret) formula
-
-### 5. **Jackpot Consolidation** (`puzzle_jackpot_consolidation.simf`)
-- Combines SHA256 verification with consolidation requirements
-- Multiple unlock conditions with fixed prize pool
-- Uses SHA256(secret) formula
 
 ## 🏗️ Project Structure
 
@@ -225,7 +221,9 @@ simplicity-puzzle-hunt/
 ├── puzzle_*_SECRET.json        # Secret files (keep private!)
 ├── archived_puzzles/           # Solved puzzles archive
 ├── list-puzzles.sh            # List and manage puzzles
-├── elements-cli               # Elements CLI wrapper
+├── elements-cli               # Elements CLI wrapper script
+├── config.example.env         # Example configuration file
+├── config.env                 # Your local configuration (create from example)
 ├── Cargo.toml                 # Rust project configuration
 └── README.md                  # This file
 ```
@@ -331,15 +329,47 @@ cargo run --bin solve-puzzle -- <puzzle_file.json> <secret> <destination_address
 
 ---
 
-### 4. **Helper Functions**
+### 4. **elements-cli Wrapper Script**
 
-**elements-cli wrapper**:
-- Provides interface to Elements daemon
-- Used for:
-  - Sending funds (`sendtoaddress`)
-  - Checking UTXOs (`gettxout`)
-  - Broadcasting transactions (`sendrawtransaction`)
-  - Getting transaction details (`getrawtransaction`)
+**Purpose**: Provides a convenient and configurable interface to the Elements CLI.
+
+**Key Features**:
+- **Dynamic Configuration**: Loads paths from `config.env` file
+- **Automatic Path Detection**: Falls back to common installation paths if no config
+- **Error Handling**: Clear error messages when Elements is not found
+- **Chain Configuration**: Supports both testnet and mainnet
+- **Backwards Compatibility**: Works with existing installations
+
+**How it works**:
+1. First checks for `config.env` in the script directory
+2. If not found, attempts to locate Elements in common paths:
+   - `$HOME/elements/src/elements-cli`
+   - `/usr/local/bin/elements-cli`
+   - Your specific installation path (as fallback)
+3. Executes elements-cli with the configured chain parameter
+4. Passes all arguments transparently to the actual elements-cli
+
+**Usage**:
+```bash
+# Once configured, use it like the regular elements-cli:
+./elements-cli getblockchaininfo
+./elements-cli getbalance
+./elements-cli sendtoaddress <address> <amount>
+```
+
+**Configuration**:
+To configure the wrapper for your environment:
+1. Copy `config.example.env` to `config.env`
+2. Edit `config.env` and set your Elements installation path
+3. The wrapper will automatically use your configuration
+
+**Benefits**:
+- No hardcoded paths in the codebase
+- Easy to share project without path conflicts
+- Automatic detection for common installations
+- Clear error messages for missing configuration
+
+### 5. **Helper Functions**
 
 **JSON File Management**:
 - Stores puzzle metadata
@@ -348,16 +378,59 @@ cargo run --bin solve-puzzle -- <puzzle_file.json> <secret> <destination_address
 
 ---
 
-### 5. **Simplicity Contracts** (`SimplicityHL/examples/`)
+### 6. **Simplicity Contracts** (`SimplicityHL/examples/`)
 
 While not functions per se, these are the smart contract templates:
 
-- **puzzle_jackpot.simf**: Basic SHA256(secret) verification
-- **puzzle_chain.simf**: Sequential multi-puzzle challenges
-- **puzzle_chain_timelock.simf**: Time-locked puzzles with block height requirements
-- **puzzle_consolidation.simf**: Multi-secret unlock requirements
-- **puzzle_jackpot_consolidation.simf**: Combined SHA256 verification and multi-secret mechanics
+- **puzzle_jackpot.simf**: Basic SHA256(secret) verification ✅ **TESTED & VALIDATED**
+  - Fully implemented in create_puzzle and solve_puzzle
+  - Production-ready on Liquid testnet
 
+- **puzzle_chain.simf**: Sequential multi-puzzle challenges ⚠️ **NOT TESTED**
+- **puzzle_chain_timelock.simf**: Time-locked puzzles with block height requirements ⚠️ **NOT TESTED**
+- **puzzle_consolidation.simf**: Multi-secret unlock requirements ⚠️ **NOT TESTED**
+- **puzzle_jackpot_consolidation.simf**: Combined SHA256 verification and multi-secret mechanics ⚠️ **NOT TESTED**
+
+## 🚀 Future Development Projects
+
+⚠️ **IMPORTANT**: Only the **Basic Puzzle** (`puzzle_jackpot.simf`) has been fully tested and validated on Liquid testnet. The following advanced puzzle types have Simplicity contract templates ready but have NOT been tested or implemented yet.
+
+### 1. **Time-Locked Puzzle** (`puzzle_chain_timelock.simf`) ⚠️ NOT TESTED
+- Adds minimum block height requirement
+- Puzzle can only be solved after specific time
+- Perfect for scheduled reveals
+- Uses SHA256(secret) formula
+- **Status**: Contract template exists, needs implementation and testing
+
+### 2. **Chained Puzzles** (`puzzle_chain.simf`) ⚠️ NOT TESTED
+- Multiple puzzles that must be solved in sequence
+- Each solution reveals the next challenge
+- Great for multi-stage challenges or treasure hunts
+- Uses SHA256(secret) formula
+- **Status**: Contract template exists, needs implementation and testing
+
+### 3. **Consolidation Puzzle** (`puzzle_consolidation.simf`) ⚠️ NOT TESTED
+- Requires multiple secrets to unlock
+- Can implement M-of-N schemes
+- Useful for group challenges or multi-sig scenarios
+- Uses SHA256(secret) formula
+- **Status**: Contract template exists, needs implementation and testing
+
+### 4. **Jackpot Consolidation** (`puzzle_jackpot_consolidation.simf`) ⚠️ NOT TESTED
+- Combines SHA256 verification with consolidation requirements
+- Multiple unlock conditions with fixed prize pool
+- Advanced multi-party unlocking mechanisms
+- **Status**: Contract template exists, needs implementation and testing
+
+### Development Roadmap
+
+These puzzle types have Simplicity contracts written but require:
+1. Rust implementation for creation and solving
+2. CLI integration with parameters for each type
+3. Testing on Liquid testnet
+4. Documentation and examples
+
+Contributors are welcome to implement these advanced features! Check the [Contributing](#contributing) section for guidelines.
 
 ## 🔒 Security Considerations
 
@@ -475,9 +548,7 @@ Built with amazing technologies:
 
 ## 📞 Contact & Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/simplicity-puzzle-hunt/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/simplicity-puzzle-hunt/discussions)
-- **Email**: your.email@example.com
+- **Email**: contato@orion.moe
 
 ---
 
